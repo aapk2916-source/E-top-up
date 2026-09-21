@@ -1,0 +1,130 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>E-topup — Topup with one tap</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#0c0c12;--card:#16161f;--line:#2a2a38;--gold:#d4af37;--tx:#f3f1ea;--mu:#9a98a6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 5%;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0c0c12ee;backdrop-filter:blur(8px);z-index:5}
+.logo{font:700 24px Georgia,serif;color:var(--gold)}.logo small{display:block;font:11px system-ui;color:var(--mu);letter-spacing:2px}
+button{cursor:pointer;border:0;border-radius:10px;padding:9px 14px;font:600 14px system-ui;background:var(--gold);color:#111}
+button.g{background:transparent;border:1px solid var(--line);color:var(--tx)}button.r{background:#b33;color:#fff}
+.hero{text-align:center;padding:50px 5% 20px}.hero h1{font:400 34px Georgia,serif;margin:0 0 8px}.hero h1 b{color:var(--gold)}.hero p{color:var(--mu);margin:0}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 5%}.chips button{white-space:nowrap;background:var(--card);color:var(--tx);border:1px solid var(--line)}.chips .on{background:var(--gold);color:#111}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;padding:10px 5% 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.card img{width:100%;height:120px;object-fit:cover;border-radius:10px}.card h3{margin:0;font-size:16px}.mu{color:var(--mu);font-size:13px}
+.old{text-decoration:line-through;color:var(--mu);margin-right:6px}.new{color:var(--gold);font-size:19px;font-weight:700}
+.row{display:flex;gap:8px}.row>*{flex:1}
+input,select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--line);background:#0f0f16;color:var(--tx);margin:4px 0;font:inherit}
+.ov{position:fixed;inset:0;background:#000b;display:none;z-index:20;align-items:center;justify-content:center;padding:14px}.ov.on{display:flex}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;width:100%;max-width:460px;max-height:92vh;overflow:auto}
+.box.w{max-width:760px}.box h2{margin:0 0 10px;font:400 22px Georgia,serif;color:var(--gold)}
+.li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs button{background:#0f0f16;color:var(--tx);border:1px solid var(--line)}.tabs .on{background:var(--gold);color:#111}
+.wa{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:6}.wa a{background:#25d366;color:#fff;text-decoration:none;padding:10px 14px;border-radius:30px;font-weight:600;font-size:13px;box-shadow:0 4px 14px #0008}
+.ord{background:#0f0f16;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;font-size:13px;line-height:1.6}
+.ok{color:#4c8}
+</style></head><body>
+<header><div class="logo">E-topup<small>TOPUP WITH ONE TAP</small></div>
+<div class="row" style="flex:none"><button class="g" onclick="openCart()">🛒 Cart (<span id="cc">0</span>)</button><button class="g" onclick="pinOpen()">🔐</button></div></header>
+<div class="hero"><h1>Topup with <b>one tap</b></h1><p>Fast • Secure • Trusted</p></div>
+<div class="chips" id="chips"></div><div class="grid" id="grid"></div><div class="wa" id="wa"></div>
+
+<div class="ov" id="ovCart"><div class="box"><h2>Your Cart</h2><div id="cartBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="cl('ovCart')">Close</button><button onclick="checkout(null)">Checkout</button></div></div></div>
+
+<div class="ov" id="ovPay"><div class="box"><h2>Purchase</h2><div id="sum"></div>
+<input id="f_name" placeholder="Name"><input id="f_mail" type="email" placeholder="Konami ID Gmail"><input id="f_pass" placeholder="Konami Password">
+<input id="f_mob" placeholder="Mobile number"><input id="f_bk" placeholder="bKash sender number"><input id="f_trx" placeholder="TrxID">
+<div class="row"><input id="f_promo" placeholder="Promo code"><button class="g" style="flex:none" onclick="applyPromo()">Apply</button></div>
+<p class="mu">Payment: <b style="color:var(--gold)" id="payn"></b> (Send Money)</p><div id="tot" class="new"></div>
+<div class="row" style="margin-top:10px"><button class="g" onclick="cl('ovPay')">Cancel</button><button onclick="placeOrder()">Confirm Order</button></div></div></div>
+
+<div class="ov" id="ovPin"><div class="box"><h2>🔐 Admin Login</h2><input id="pinIn" type="password" inputmode="numeric" placeholder="Enter PIN"><div class="row"><button class="g" onclick="cl('ovPin')">Cancel</button><button onclick="pinCheck()">Unlock</button></div></div></div>
+
+<div class="ov" id="ovAdm"><div class="box w"><h2>Admin Panel</h2><div class="tabs" id="tabs"></div><div id="adm"></div><button class="g" style="margin-top:12px" onclick="admin=false;cl('ovAdm')">Lock &amp; Exit</button></div></div>
+
+<script>
+// ====== SETUP ======
+// Leave empty = demo mode (data saved only in THIS browser).
+// Paste your Firebase config for real shared memory (all customers see admin updates).
+const FIREBASE_CONFIG={apiKey:"",authDomain:"",projectId:"",appId:""};
+const PAY_NUM="01742025576";
+// ===================
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const uid=()=>Math.random().toString(36).slice(2,9),cl=i=>$('#'+i).classList.remove('on'),op=i=>$('#'+i).classList.add('on');
+const LS=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+let S={cats:[],prods:[],promos:[],wa:['','',''],pin:''},orders=[],cart=LS('et_cart',{}),cat='all',admin=false,tab='cats',db=null,buyId=null,promo=null;
+const useFB=FIREBASE_CONFIG.apiKey&&window.firebase;
+const eff=p=>p.disc>0&&p.disc<p.price?p.disc:p.price;
+
+async function seed(){return{cats:[{id:'c1',name:'eFootball Coins'},{id:'c2',name:'Game Pass'}],prods:[{id:'p1',cat:'c1',name:'100 Coins',price:120,disc:99,img:''},{id:'p2',cat:'c1',name:'500 Coins',price:550,disc:0,img:''},{id:'p3',cat:'c2',name:'Weekly Pass',price:300,disc:250,img:''}],promos:[{code:'WELCOME10',pct:10}],wa:['','',''],pin:await sha('1234')}}
+async function init(){
+ if(useFB){firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();
+  db.doc('site/data').onSnapshot(async d=>{if(d.exists)S=d.data();else{S=await seed();save()}render()});
+  db.collection('orders').orderBy('date','desc').onSnapshot(q=>{orders=q.docs.map(d=>({...d.data(),id:d.id}));if(admin)adm()});
+ }else{S=LS('et_data',null)||await seed();orders=LS('et_orders',[]);render()}
+}
+function save(){useFB?db.doc('site/data').set(S):localStorage.setItem('et_data',JSON.stringify(S));if(!useFB)render()}
+function saveOrders(){localStorage.setItem('et_orders',JSON.stringify(orders))}
+const wnum=n=>{n=(n||'').replace(/\D/g,'');return n.startsWith('0')?'88'+n:n};
+
+function render(){
+ $('#payn').textContent=PAY_NUM;
+ $('#chips').innerHTML=[{id:'all',name:'All'},...S.cats].map(c=>`<button class="${c.id==cat?'on':''}" onclick="cat='${c.id}';render()">${esc(c.name)}</button>`).join('');
+ const list=S.prods.filter(p=>cat=='all'||p.cat==cat);
+ $('#grid').innerHTML=list.map(p=>`<div class="card">${p.img?`<img src="${esc(p.img)}" alt="">`:''}<h3>${esc(p.name)}</h3><div class="mu">${esc(S.cats.find(c=>c.id==p.cat)?.name||'')}</div>
+ <div>${eff(p)<p.price?`<span class="old">৳${p.price}</span>`:''}<span class="new">৳${eff(p)}</span></div>
+ <div class="row"><button class="g" onclick="add('${p.id}')">+ Cart</button><button onclick="checkout('${p.id}')">Buy now</button></div></div>`).join('')||'<p class="mu">No products yet.</p>';
+ $('#wa').innerHTML=S.wa.filter(Boolean).map((n,i)=>`<a target="_blank" href="https://wa.me/${wnum(n)}">💬 WhatsApp ${i+1}</a>`).join('');
+ $('#cc').textContent=Object.values(cart).reduce((a,b)=>a+b,0);
+}
+function add(id){cart[id]=(cart[id]||0)+1;localStorage.setItem('et_cart',JSON.stringify(cart));render()}
+function qty(id,d){cart[id]=(cart[id]||0)+d;if(cart[id]<=0)delete cart[id];localStorage.setItem('et_cart',JSON.stringify(cart));render();openCart()}
+function openCart(){
+ const rows=Object.keys(cart).map(id=>{const p=S.prods.find(x=>x.id==id);return p?`<div class="li"><span>${esc(p.name)}<br><span class="mu">৳${eff(p)}</span></span><span class="row" style="flex:none"><button class="g" onclick="qty('${id}',-1)">−</button><b style="align-self:center">${cart[id]}</b><button class="g" onclick="qty('${id}',1)">+</button></span></div>`:''}).join('');
+ $('#cartBody').innerHTML=rows||'<p class="mu">Cart is empty.</p>';op('ovCart');
+}
+function items(){const src=buyId?{[buyId]:1}:cart;return Object.keys(src).map(id=>{const p=S.prods.find(x=>x.id==id);return p&&{name:p.name,qty:src[id],price:eff(p)}}).filter(Boolean)}
+function total(){const s=items().reduce((a,i)=>a+i.price*i.qty,0);return promo?Math.round(s*(100-promo.pct)/100):s}
+function checkout(id){buyId=id;promo=null;if(!items().length)return alert('Cart is empty');cl('ovCart');
+ $('#sum').innerHTML=items().map(i=>`<div class="li"><span>${esc(i.name)} × ${i.qty}</span><b>৳${i.price*i.qty}</b></div>`).join('');$('#f_promo').value='';showTot();op('ovPay')}
+function showTot(){$('#tot').textContent='Total: ৳'+total()+(promo?` (${promo.pct}% off)`:'')}
+function applyPromo(){const c=$('#f_promo').value.trim().toUpperCase();promo=S.promos.find(p=>p.code.toUpperCase()==c)||null;if(!promo)alert('Invalid promo code');showTot()}
+async function placeOrder(){
+ const g=i=>$('#'+i).value.trim(),v={name:g('f_name'),mail:g('f_mail'),pass:g('f_pass'),mob:g('f_mob'),bkash:g('f_bk'),trx:g('f_trx')};
+ if(Object.values(v).some(x=>!x))return alert('Please fill all fields');
+ if(g('f_promo')&&!promo)applyPromo();
+ const o={...v,promo:promo?promo.code:'',items:items(),total:total(),status:'Pending',date:Date.now()};
+ if(useFB)await db.collection('orders').add(o);else{orders.unshift({...o,id:uid()});saveOrders()}
+ if(!buyId){cart={};localStorage.setItem('et_cart','{}')}
+ ['f_name','f_mail','f_pass','f_mob','f_bk','f_trx'].forEach(i=>$('#'+i).value='');
+ cl('ovPay');render();alert('✅ Order received! We will top up your account shortly.');
+}
+
+// ===== ADMIN =====
+function pinOpen(){$('#pinIn').value='';op('ovPin')}
+async function pinCheck(){if(await sha($('#pinIn').value)==S.pin){admin=true;cl('ovPin');op('ovAdm');adm()}else alert('Wrong PIN')}
+const T={cats:'Categories',prods:'Products',promos:'Promo codes',wa:'Contacts',orders:'Orders',pin:'Change PIN'};
+function adm(){
+ $('#tabs').innerHTML=Object.entries(T).map(([k,n])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';adm()">${n}${k=='orders'?' ('+orders.length+')':''}</button>`).join('');
+ const A=$('#adm');
+ if(tab=='cats')A.innerHTML=`<div class="row"><input id="a1" placeholder="Category name"><button style="flex:none" onclick="addCat()">Add</button></div>`+S.cats.map(c=>`<div class="li">${esc(c.name)}<button class="r" onclick="del('cats','${c.id}')">Delete</button></div>`).join('');
+ if(tab=='prods')A.innerHTML=`<input id="a1" placeholder="Product name"><select id="a2">${S.cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><div class="row"><input id="a3" type="number" placeholder="Price"><input id="a4" type="number" placeholder="Discounted price (optional)"></div><input id="a5" placeholder="Image URL (optional)"><button onclick="addProd()">Add product</button>`
+  +S.prods.map(p=>`<div class="li"><span>${esc(p.name)}<br><span class="mu">৳${p.price} → ${p.disc||'-'}</span></span><span><button class="g" onclick="editP('${p.id}')">Edit</button> <button class="r" onclick="del('prods','${p.id}')">X</button></span></div>`).join('');
+ if(tab=='promos')A.innerHTML=`<div class="row"><input id="a1" placeholder="CODE"><input id="a2" type="number" placeholder="% off"><button style="flex:none" onclick="addPromo()">Add</button></div>`+S.promos.map(p=>`<div class="li">${esc(p.code)} — ${p.pct}%<button class="r" onclick="del('promos','${p.code}')">Delete</button></div>`).join('');
+ if(tab=='wa')A.innerHTML=`<p class="mu">Use country code, e.g. 8801XXXXXXXXX</p>`+[0,1,2].map(i=>`<input id="w${i}" placeholder="WhatsApp number ${i+1}" value="${esc(S.wa[i])}">`).join('')+`<button onclick="S.wa=[0,1,2].map(i=>$('#w'+i).value.trim());save();alert('Saved')">Save</button>`;
+ if(tab=='orders')A.innerHTML=orders.map(o=>`<div class="ord"><b>${esc(o.name)}</b> • ${new Date(o.date).toLocaleString()} • <span class="${o.status=='Done'?'ok':''}">${o.status}</span><br>Gmail: ${esc(o.mail)}<br>Password: ${esc(o.pass)}<br>Mobile: ${esc(o.mob)} • bKash: ${esc(o.bkash)} • TrxID: ${esc(o.trx)}<br>Promo: ${esc(o.promo)||'-'}<br>${o.items.map(i=>esc(i.name)+' ×'+i.qty).join(', ')}<br><b>Total ৳${o.total}</b><div class="row" style="margin-top:6px"><button class="g" onclick="ordDone('${o.id}','${o.status}')">Toggle Done</button><button class="r" onclick="ordDel('${o.id}')">Delete</button></div></div>`).join('')||'<p class="mu">No orders yet.</p>';
+ if(tab=='pin')A.innerHTML=`<input id="a1" type="password" inputmode="numeric" placeholder="New PIN (4+ digits)"><button onclick="setPin()">Update PIN</button>`;
+}
+const val=i=>$('#'+i).value.trim();
+function addCat(){if(!val('a1'))return;S.cats.push({id:uid(),name:val('a1')});save();adm()}
+function addProd(){if(!val('a1')||!val('a3')||!S.cats.length)return alert('Fill name, category, price');S.prods.push({id:uid(),cat:val('a2'),name:val('a1'),price:+val('a3'),disc:+val('a4')||0,img:val('a5')});save();adm()}
+function editP(id){const p=S.prods.find(x=>x.id==id),a=prompt('Price',p.price);if(a===null)return;const b=prompt('Discounted price (0 = none)',p.disc);p.price=+a;p.disc=+b||0;save();adm()}
+function addPromo(){if(!val('a1')||!val('a2'))return;S.promos.push({code:val('a1').toUpperCase(),pct:+val('a2')});save();adm()}
+function del(k,id){if(!confirm('Delete?'))return;S[k]=S[k].filter(x=>(x.id||x.code)!=id);if(k=='cats')S.prods=S.prods.filter(p=>p.cat!=id);save();adm()}
+async function setPin(){const p=val('a1');if(!/^\d{4,}$/.test(p))return alert('PIN must be 4+ digits');S.pin=await sha(p);save();alert('PIN updated')}
+function ordDone(id,s){const n=s=='Done'?'Pending':'Done';if(useFB)db.collection('orders').doc(id).update({status:n});else{orders.find(o=>o.id==id).status=n;saveOrders();adm()}}
+function ordDel(id){if(!confirm('Delete order?'))return;if(useFB)db.collection('orders').doc(id).delete();else{orders=orders.filter(o=>o.id!=id);saveOrders();adm()}}
+init();
+</script></body></html>
